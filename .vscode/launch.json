@@ -10,7 +10,7 @@
             "type": "dart",
             "program": "bin/server.dart",
             "args": [
-                "5"
+                "1"
             ]
         },
         {
