@@ -3,7 +3,9 @@ import 'dart:isolate';
 
 const host = '127.0.0.1';
 const port = 28960;
+const minimumClientsBoard = 5; // minimum clients to start using board
 
+const maxClientWaitTimeDuration = Duration(seconds: 5);
 void sendMessage(Socket socket, String? message) {
   if (message != null) socket.write(message);
 }

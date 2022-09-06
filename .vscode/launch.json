@@ -8,13 +8,17 @@
             "name": "server",
             "request": "launch",
             "type": "dart",
-            "program": "bin/server.dart"
+            "program": "bin/server.dart",
         },
         {
             "name": "client",
             "request": "launch",
             "type": "dart",
-            "program": "bin/client.dart"
+            "program": "bin/client.dart",
+            "console": "terminal",
+            "args": [
+                "sonic 2006"
+            ]
         },
     ]
 }
