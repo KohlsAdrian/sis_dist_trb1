@@ -3,8 +3,8 @@ import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:trabalho_01/data/models/client_model.dart';
 import 'package:trabalho_01/core/server/server_messaging.dart';
+import 'package:trabalho_01/data/models/client_model.dart';
 
 import '../../data/constants.dart';
 
