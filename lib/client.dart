@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'constants.dart';
+import 'data/constants.dart';
 
 class ExclusaoMutuaClient {
   ExclusaoMutuaClient._();

@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:trabalho_01/models/client_model.dart';
 
-import 'constants.dart';
+import 'data/constants.dart';
 
 class ExclusaoMutuaServer {
   ExclusaoMutuaServer._();
