@@ -15,8 +15,8 @@ class ExclusaoMutuaServer {
 
   /// exclusion flag
   ClientModel? _currentClientWriter;
-
   final _clients = ListQueue<ClientModel>();
+
   late final _serverMessaging = ServerMessaging(_clients);
 
   final _boardMessages = <String>[];
@@ -27,7 +27,7 @@ class ExclusaoMutuaServer {
     server.listen(_onClientConnect);
   }
 
-  void _startClientTimer() {
+  void _resetTimerWriter() {
     if (_debounce?.isActive ?? false) _debounce?.cancel();
     _debounce = Timer(maxClientWaitTimeDuration, _onNextQueue);
   }
@@ -35,61 +35,58 @@ class ExclusaoMutuaServer {
   void _onClientConnect(Socket connection) {
     final client = ClientModel(connection: connection);
 
-    /// first client always the main WRITER
-    if (_clients.isEmpty) {
-      _currentClientWriter = client;
-    }
-
-    if (_clients.length >= minimumClientsBoard) {
-      /// start debounce only on minimum client connections
-      _startClientTimer();
-    } else {
-      /// cancel debounce on disconnects if less than minimum clients
-      _debounce?.cancel();
-    }
-
-    _clients.add(client);
-
-    /// new connection goes to end of the queue
-
     /// listen to client events
     client.connection.listen(
       (data) => _onClientEvent(data, client),
       onDone: () => _onClientDone(client),
       onError: (error) => _onClientError(error, client),
     );
+
+    /// new connection goes to end of the queue
+    _clients.add(client);
+
+    final hasMinClients = _clients.length >= minimumClientsBoard;
+    final isTimerOn = (_debounce?.isActive ?? false);
+    if (hasMinClients && !isTimerOn) {
+      /// start debounce only on minimum client connections
+      _onNextQueue();
+      _resetTimerWriter();
+    } else if (!hasMinClients) {
+      /// cancel debounce on disconnects if less than minimum clients
+      _debounce?.cancel();
+    }
   }
 
   /// |||||||||||||||||||||||||||||||
 
   void _onNextQueue() {
-    if (_clients.isNotEmpty) {
-      ClientModel client = _clients.removeFirst();
+    if (_currentClientWriter == null && _clients.isNotEmpty) {
+      /// writer is the first in the QUEUE
+      _currentClientWriter = _clients.first;
+    } else if (_clients.isNotEmpty) {
+      /// move first in the QUEUE to the end
+      ClientModel lastClient = _clients.removeFirst();
+      _clients.add(lastClient);
 
-      /// remove first in the QUEUE
-      _clients.add(client);
-
-      /// add to the end of the QUEUE
+      /// set new WRITER QUEUEr
       _currentClientWriter = _clients.first;
 
-      /// writer is the first in the QUEUE
+      /// message new queuer and old first queuer
+      _serverMessaging
+        ..messageUser(
+          client: lastClient, // message old first QUEUER
+          message: 'Você foi colocado no final da fila!',
+        )
+        ..messageUser(
+          client: _currentClientWriter!, // message new first QUEUER
+          message: 'Agora é sua vez!\n'
+              '${maxClientWaitTimeDuration.inSeconds} segundos!!!'
+              '\nTic tac!!!!',
+        );
 
-      /// message old first QUEUER
-      _serverMessaging.messageUser(
-        client: client,
-        message: 'Você foi colocado no final da fila!',
-      );
-
-      /// message new first QUEUER
-      _serverMessaging.messageUser(
-        client: _currentClientWriter!,
-        message: 'Agora é sua vez!\n'
-            '5 segundos!!! Tic tac!',
-      );
+      /// reset timer for current writer
+      _resetTimerWriter();
     }
-
-    /// reset timer for current writer
-    _startClientTimer();
   }
 
   void _onClientEvent(Uint8List data, ClientModel client) {
@@ -97,6 +94,7 @@ class ExclusaoMutuaServer {
 
     /// clear entire screen, move cursor to 0;0
     final message = String.fromCharCodes(data);
+    print(message);
     if (client.name == null) {
       //first message to server is
       client.name = message;
@@ -104,7 +102,8 @@ class ExclusaoMutuaServer {
     } else if (_clients.length < minimumClientsBoard) {
       _serverMessaging.warnMinimunClients();
     } else {
-      if (client == _currentClientWriter) {
+      final isWritter = client == _currentClientWriter;
+      if (isWritter) {
         /// have write Permission
         _serverMessaging.sendMessageToBoard(
           message: message,

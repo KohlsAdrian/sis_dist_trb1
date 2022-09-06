@@ -5,7 +5,7 @@ const host = '127.0.0.1';
 const port = 28960;
 int minimumClientsBoard = 5; // minimum clients to start using board
 
-const maxClientWaitTimeDuration = Duration(seconds: 5);
+const maxClientWaitTimeDuration = Duration(seconds: 10);
 void sendMessage(Socket socket, String? message) {
   if (message != null) socket.write(message);
 }
