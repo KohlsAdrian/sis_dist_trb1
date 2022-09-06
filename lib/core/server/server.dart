@@ -3,9 +3,10 @@ import 'dart:collection';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:trabalho_01/models/client_model.dart';
+import 'package:trabalho_01/data/models/client_model.dart';
+import 'package:trabalho_01/core/server/server_messaging.dart';
 
-import 'data/constants.dart';
+import '../../data/constants.dart';
 
 class ExclusaoMutuaServer {
   ExclusaoMutuaServer._();
@@ -16,9 +17,7 @@ class ExclusaoMutuaServer {
   ClientModel? _currentClientWriter;
 
   final _clients = ListQueue<ClientModel>();
-
-  /// clients FIFO
-  int get _clientsLength => _clients.length;
+  late final _serverMessaging = ServerMessaging(_clients);
 
   final _boardMessages = <String>[];
   Timer? _debounce;
@@ -63,60 +62,6 @@ class ExclusaoMutuaServer {
 
   /// |||||||||||||||||||||||||||||||
 
-  /// START OF MESSAGING
-  void _messageAllUsers({required String message}) {
-    for (final client in _clients) {
-      _messageUser(client: client, message: message);
-    }
-  }
-
-  void _messageUser({required ClientModel client, required String message}) {
-    client.connection.writeln(message);
-  }
-
-  void _onSendMessageToBoard({required String message}) {
-    /// test if first in the QUEUE is the WRITER
-    assert(_clients.first == _currentClientWriter);
-    _boardMessages.add(message);
-    _onNextQueue();
-  }
-
-  void _onSendRejection({required ClientModel client}) {
-    /// PERFORMANCE ISSUE (convert structure to list to get INDEX)
-    final queueIndex = _clients.toList().indexOf(client);
-    _messageUser(
-      client: client,
-      message: 'Não é sua vez ainda! Aguarde! '
-          '$queueIndex/$_clientsLength',
-    );
-  }
-
-  void _onWarnMinimunClients() {
-    final message = 'Aguardando clientes \n'
-        '[$_clientsLength/$minimumClientsBoard]';
-    for (final client in _clients) {
-      client.connection.write(message);
-    }
-  }
-
-  void _onDrawBoard() {
-    String boardMessages = '';
-    for (final msg in _boardMessages) {
-      boardMessages += '$msg\n';
-    }
-    _messageAllUsers(
-      message: '---AVISOS---\n'
-          '$boardMessages'
-          '------------\n',
-    );
-  }
-
-  /// END OF MESSAGING
-
-  /// |||||||||||||||||||||||||||||||
-
-  /// START OF USE CASE
-
   void _onNextQueue() {
     if (_clients.isNotEmpty) {
       ClientModel client = _clients.removeFirst();
@@ -130,13 +75,13 @@ class ExclusaoMutuaServer {
       /// writer is the first in the QUEUE
 
       /// message old first QUEUER
-      _messageUser(
+      _serverMessaging.messageUser(
         client: client,
         message: 'Você foi colocado no final da fila!',
       );
 
       /// message new first QUEUER
-      _messageUser(
+      _serverMessaging.messageUser(
         client: _currentClientWriter!,
         message: 'Agora é sua vez!\n'
             '5 segundos!!! Tic tac!',
@@ -157,25 +102,28 @@ class ExclusaoMutuaServer {
       client.name = message;
       _onClientJoined(client: client);
     } else if (_clients.length < minimumClientsBoard) {
-      _onWarnMinimunClients();
+      _serverMessaging.warnMinimunClients();
     } else {
       if (client == _currentClientWriter) {
         /// have write Permission
-        _onSendMessageToBoard(message: message);
+        _serverMessaging.sendMessageToBoard(
+          message: message,
+          clientWriter: _currentClientWriter,
+          boardMessages: _boardMessages,
+          onNext: _onNextQueue,
+        );
       } else {
         /// just a reader, must wait
-        _onSendRejection(client: client);
+        _serverMessaging.sendRejectionMessage(client: client);
       }
-      _onDrawBoard();
+      _serverMessaging.drawBoard(boardMessages: _boardMessages);
     }
   }
-
-  /// END OF USE CASE
 
   /// |||||||||||||||||||||||||||||||
   void _onClientJoined({required ClientModel client}) {
     final msg = '${client.name} entrou no servidor';
-    _messageAllUsers(message: msg);
+    _serverMessaging.messageAllUsers(message: msg);
   }
 
   void _onClientDone(ClientModel client) {
@@ -183,7 +131,7 @@ class ExclusaoMutuaServer {
     _clients.remove(client);
     final msg = '${client.name} left';
     print(msg);
-    _messageAllUsers(message: msg);
+    _serverMessaging.messageAllUsers(message: msg);
   }
 
   void _onClientError(dynamic error, ClientModel client) {
