@@ -26,7 +26,11 @@ class ServerMessaging {
   }) {
     /// test if first in the QUEUE is the WRITER
     assert(clients.first == clientWriter);
-    boardMessages.add(message);
+    if (message == 'apagar' && boardMessages.isNotEmpty) {
+      boardMessages.removeAt(0);
+    } else {
+      boardMessages.add(message);
+    }
     onNext.call();
   }
 
